@@ -1,0 +1,14 @@
+{
+  "name": "activehub-order-reconciliation-platform",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "concurrently \"npm:dev --workspace apps/api\" \"npm:dev --workspace apps/web\"",
+    "build": "npm run build --workspace apps/api && npm run build --workspace apps/web",
+    "db:generate": "npm run prisma:generate --workspace apps/api",
+    "db:migrate": "npm run prisma:migrate --workspace apps/api",
+    "seed": "npm run seed --workspace apps/api"
+  },
+  "devDependencies": {"concurrently": "^8.2.2"},
+  "engines": {"node": ">=20"}
+}
