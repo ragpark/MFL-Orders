@@ -1,0 +1,102 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+
+enum EventType {
+  BATCH_CREATED
+  BULK_SUBS_ATTEMPT
+  BULK_SUBS_SUCCESS
+  BULK_SUBS_FAILURE
+  TEP_ATTEMPT
+  TEP_SUCCESS
+  TEP_FAILURE
+  LM_ATTEMPT
+  LM_SUCCESS
+  LM_FAILURE
+}
+
+enum UploadType { BATCH PROCESSING_REPORT LM_REPORT REORDER }
+enum UploadStatus { PENDING VALIDATED FAILED IMPORTED }
+
+model Order {
+  id            String         @id @default(uuid())
+  orderNumber   String         @unique
+  customerId    String?
+  email         String?
+  orgName       String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  batches       OrderBatch[]
+  events        Event[]
+  failures      OrderFailure[]
+  parentLinks   ReorderChain[] @relation("ParentOrder")
+  childLinks    ReorderChain[] @relation("ChildOrder")
+}
+
+model Batch {
+  id             String       @id @default(uuid())
+  name           String
+  uploadedAt     DateTime     @default(now())
+  sourceFileName String
+  orders         OrderBatch[]
+}
+
+model OrderBatch {
+  id      String @id @default(uuid())
+  orderId String
+  batchId String
+  order   Order  @relation(fields: [orderId], references: [id])
+  batch   Batch  @relation(fields: [batchId], references: [id])
+  @@unique([orderId, batchId])
+}
+
+model Event {
+  id         String    @id @default(uuid())
+  orderId    String
+  eventType  EventType
+  rawMessage String
+  statusCode String?
+  createdAt  DateTime  @default(now())
+  order      Order     @relation(fields: [orderId], references: [id])
+  failures   OrderFailure[]
+  @@index([eventType])
+  @@index([orderId, createdAt])
+}
+
+model FailureCategory {
+  id          String @id @default(uuid())
+  code        String @unique
+  description String
+  pattern     String
+  failures    OrderFailure[]
+}
+
+model OrderFailure {
+  id                String @id @default(uuid())
+  orderId           String
+  failureCategoryId String
+  eventId           String
+  order             Order @relation(fields: [orderId], references: [id])
+  failureCategory   FailureCategory @relation(fields: [failureCategoryId], references: [id])
+  event             Event @relation(fields: [eventId], references: [id])
+  @@unique([orderId, failureCategoryId, eventId])
+}
+
+model ReorderChain {
+  id            String @id @default(uuid())
+  parentOrderId String
+  childOrderId  String
+  reorderNumber Int
+  parentOrder   Order @relation("ParentOrder", fields: [parentOrderId], references: [id])
+  childOrder    Order @relation("ChildOrder", fields: [childOrderId], references: [id])
+  @@unique([parentOrderId, childOrderId])
+}
+
+model Upload {
+  id          String       @id @default(uuid())
+  type        UploadType
+  fileName    String
+  status      UploadStatus @default(PENDING)
+  summaryJson Json?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
